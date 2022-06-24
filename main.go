@@ -13,6 +13,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
+	"github.com/habibiiberahim/gofiber-clean-architecture/helpers"
 	"github.com/habibiiberahim/gofiber-clean-architecture/pkg"
 	"github.com/habibiiberahim/gofiber-clean-architecture/routes"
 	"github.com/sirupsen/logrus"
@@ -39,11 +40,9 @@ func SetupRouter() *fiber.App{
 	app.Use(favicon.New())
 	app.Use(limiter.New(limiter.Config{
 		Max: 100,
-		LimitReached: func(c *fiber.Ctx) error {
-			return c.Status(fiber.StatusTooManyRequests).JSON(&fiber.Map{
-				"status":  "fail",
-				"message": "You have requested too many in a single time-frame! Please wait another minute!",
-			})
+		LimitReached: func(ctx *fiber.Ctx) error {
+			jsonRes := helpers.APIResponse(ctx, "You have requested too many", fiber.StatusTooManyRequests, fiber.MethodGet, "")
+			return ctx.Status(fiber.StatusAccepted).JSON(jsonRes)
 		},
 	}))
 	app.Use(logger.New())
@@ -53,8 +52,10 @@ func SetupRouter() *fiber.App{
 	//routes init db and app
 	routes.InitAuthRoutes(db, app)
 
-	app.Use(func(c *fiber.Ctx) error {
-		return c.SendStatus(404) // => 404 "Not Found"
+	app.Use(func(ctx *fiber.Ctx) error {
+		jsonRes := helpers.APIResponse(ctx, "This endpoint not found", fiber.StatusNotFound, fiber.MethodGet, "")
+		return ctx.Status(fiber.StatusAccepted).JSON(jsonRes)
+	
 	})
 
 	return app

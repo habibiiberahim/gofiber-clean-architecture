@@ -17,15 +17,19 @@ func InitAuthRoutes(db *gorm.DB, route *fiber.App) {
 	pingService := services.NewServicePing(pingRepository)
 	pingHandler := handlers.NewHandlerPing(pingService)
 
+	registerRepository := repositorys.NewRepositoryRegister(db)
+	registerService := services.NewServiceRegister(registerRepository)
+	registerHandler := handlers.NewHandlerRegitser(registerService)
+
 	/**
 	@description All Auth Route
 	*/
 	groupRoute := route.Group("api/v1")
 	groupRoute.Get("/ping", pingHandler.PingHandler)
-	// groupRoute.POST("/register", registerHandler.RegisterHandler)
-	// groupRoute.POST("/login", loginHandler.LoginHandler)
-	// groupRoute.POST("/activation/:token", activationHandler.ActivationHandler)
-	// groupRoute.POST("/resend-token", resendHandler.ResendHandler)
-	// groupRoute.POST("/forgot-password", forgotHandler.ForgotHandler)
-	// groupRoute.POST("/change-password/:token", resetHandler.ResetHandler)pr
+	groupRoute.Post("/register", registerHandler.RegisterHandler)
+	// groupRoute.Post("/login", loginHandler.LoginHandler)
+	// groupRoute.Post("/activation/:token", activationHandler.ActivationHandler)
+	// groupRoute.Post("/resend-token", resendHandler.ResendHandler)
+	// groupRoute.Post("/forgot-password", forgotHandler.ForgotHandler)
+	// groupRoute.Post("/change-password/:token", resetHandler.ResetHandler)pr
 }
