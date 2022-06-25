@@ -3,6 +3,8 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"strconv"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/compress"
@@ -32,7 +34,6 @@ func SetupRouter() *fiber.App{
 	
 	db := SetupDatabase()
 	app := fiber.New()
-	
 	// Use global middlewares.
 	app.Use(cors.New())
 	app.Use(compress.New())
@@ -68,24 +69,22 @@ func SetupDatabase() *gorm.DB {
 	host := pkg.GodotEnv("DATABASE_HOST")
 	port := pkg.GodotEnv("DATABASE_PORT")
 	dbname := pkg.GodotEnv("DATABASE_NAME")
- 
+	
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", user, pass, host, port, dbname)
 	
-	// dsn := "root:mysqlpw@tcp(127.0.0.1:49153)/gofiber?charset=utf8mb4&parseTime=True&loc=Local"
- 
 	sqlDB, _ := sql.Open("mysql", dsn)
 
-	// maxIdleConn, _ := strconv.Atoi(pkg.GodotEnv("DB_MAX_IDLE_CONNECTION"))
+	maxIdleConn, _ := strconv.Atoi(pkg.GodotEnv("DB_MAX_IDLE_CONNECTION"))
 
-	// maxOpenConn, _ := strconv.Atoi(pkg.GodotEnv("DB_MAX_OPEN_CONNECTION"))
+	maxOpenConn, _ := strconv.Atoi(pkg.GodotEnv("DB_MAX_OPEN_CONNECTION"))
 
-	// maxLifetimeConn, _ := strconv.Atoi(pkg.GodotEnv("DB_MAX_LIFETIME_CONNECTION"))
+	maxLifetimeConn, _ := strconv.Atoi(pkg.GodotEnv("DB_MAX_LIFETIME_CONNECTION"))
 
-	// sqlDB.SetMaxIdleConns(maxIdleConn)
+	sqlDB.SetMaxIdleConns(maxIdleConn)
 
-	// sqlDB.SetMaxOpenConns(maxOpenConn)
+	sqlDB.SetMaxOpenConns(maxOpenConn)
 
-	// sqlDB.SetConnMaxLifetime(time.Duration(maxLifetimeConn) * time.Minute)
+	sqlDB.SetConnMaxLifetime(time.Duration(maxLifetimeConn) * time.Minute)
 
 	database,_:= gorm.Open(mysql.New(mysql.Config{
 		Conn: sqlDB,

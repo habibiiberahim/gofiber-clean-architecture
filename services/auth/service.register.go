@@ -8,7 +8,7 @@ import (
 
 //create interface
 type ServiceRegister interface{
-	RegisterService(input schemas.SchemaAuth)(*entities.EntityUser, schemas.SchemaDatabaseError)
+	RegisterService(input *schemas.SchemaAuth)(*entities.User, schemas.SchemaDatabaseError)
 }
 
 //create struct
@@ -24,7 +24,7 @@ func NewServiceRegister(repository repositorys.RepositoryRegister) *serviceRegis
 }
 
 //all function need 
-func (s *serviceRegister)RegisterService(input schemas.SchemaAuth) (*entities.EntityUser,schemas.SchemaDatabaseError) {
+func (s *serviceRegister)RegisterService(input *schemas.SchemaAuth) (*entities.User,schemas.SchemaDatabaseError) {
 	var schema schemas.SchemaAuth
 	schema.Fullname = input.Fullname
 	schema.Email = input.Email
