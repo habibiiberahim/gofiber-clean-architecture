@@ -3,6 +3,8 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"os"
+	"os/signal"
 	"strconv"
 	"time"
 
@@ -27,12 +29,29 @@ func main() {
 	logger := logrus.New()
 	logger.Println("Starting App")
 	app := SetupRouter()
-	app.Listen(":" + pkg.GodotEnv("GO_PORT"))
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+
+	go func() {
+		_ = <-c
+		logrus.Println("Graefully shutting down")
+		_ = app.Shutdown()
+
+	}()
+
+	if err := app.Listen(":" + pkg.GodotEnv("GO_PORT")); err != nil {
+		logrus.Panic(err)
+	}
+
+	logrus.Println("Running cleanup task")
 }
 
-func SetupRouter() *fiber.App{
-	
-	db := SetupDatabase()
+func SetupRouter() *fiber.App {
+	db, err := SetupDatabase()
+	if err != nil {
+		logrus.Println(err)
+	}
 	app := fiber.New()
 	// Use global middlewares.
 	app.Use(cors.New())
@@ -49,45 +68,38 @@ func SetupRouter() *fiber.App{
 	app.Use(logger.New())
 	app.Use(recover.New())
 	app.Use(requestid.New())
-	
+
 	//routes init db and app
 	routes.InitAuthRoutes(db, app)
 
 	app.Use(func(ctx *fiber.Ctx) error {
 		jsonRes := helpers.APIResponse(ctx, "This endpoint not found", fiber.StatusNotFound, fiber.MethodGet, "")
 		return ctx.Status(fiber.StatusAccepted).JSON(jsonRes)
-	
 	})
 
 	return app
 }
 
-func SetupDatabase() *gorm.DB {
+func SetupDatabase() (*gorm.DB, error) {
 	//create connection to database
 	user := pkg.GodotEnv("DATABASE_USER")
 	pass := pkg.GodotEnv("DATABASE_PASS")
 	host := pkg.GodotEnv("DATABASE_HOST")
 	port := pkg.GodotEnv("DATABASE_PORT")
 	dbname := pkg.GodotEnv("DATABASE_NAME")
-	
+
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", user, pass, host, port, dbname)
-	
 	sqlDB, _ := sql.Open("mysql", dsn)
-
 	maxIdleConn, _ := strconv.Atoi(pkg.GodotEnv("DB_MAX_IDLE_CONNECTION"))
-
 	maxOpenConn, _ := strconv.Atoi(pkg.GodotEnv("DB_MAX_OPEN_CONNECTION"))
-
 	maxLifetimeConn, _ := strconv.Atoi(pkg.GodotEnv("DB_MAX_LIFETIME_CONNECTION"))
 
 	sqlDB.SetMaxIdleConns(maxIdleConn)
-
 	sqlDB.SetMaxOpenConns(maxOpenConn)
-
 	sqlDB.SetConnMaxLifetime(time.Duration(maxLifetimeConn) * time.Minute)
 
-	database,_:= gorm.Open(mysql.New(mysql.Config{
+	database, err := gorm.Open(mysql.New(mysql.Config{
 		Conn: sqlDB,
 	}), &gorm.Config{})
-	return database
+	return database, err
 }
