@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -28,6 +29,13 @@ func main() {
 		logr.Panicf("failed database setup. error: %v", err)
 	}
 
+	// Checking command for migrating
+	flag.Parse()
+	arg := flag.Arg(0)
+	if arg != "" {
+		databases.InitCommands(db)
+	}
+
 	//Define Fibrt config & app
 	fiberCfg := configs.FiberConfig()
 	app := fiber.New(fiberCfg)
@@ -47,7 +55,6 @@ func main() {
 		<-sigCh
 		logr.Infoln("Shutting down server...")
 		_ = app.Shutdown()
-
 	}()
 
 	// start http server

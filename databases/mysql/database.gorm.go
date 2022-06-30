@@ -4,10 +4,12 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/habibiiberahim/gofiber-clean-architecture/configs"
 	databases "github.com/habibiiberahim/gofiber-clean-architecture/databases/migrations"
+	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -27,28 +29,49 @@ func GetDatabase() (*gorm.DB, error) {
 	}), &gorm.Config{})
 
 	if err != nil {
-		return nil, fmt.Errorf("can't connected to database, %w", err)
+		logrus.Panic(err)
 	}
-
-	for _, entity := range databases.RegisterEntities() {
-		err := database.Debug().AutoMigrate(entity.Entity)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-
 	return database, nil
 }
 
+func runMigrate(database *gorm.DB) {
+	for _, entity := range databases.RegisterEntities() {
+		err := database.Debug().AutoMigrate(entity.Entity)
+		if err != nil {
+			logrus.Fatal(err)
+		}
+	}
+	logrus.Info("Database migrate successfully")
+}
+
+func runSeeder(database *gorm.DB) {
+	logrus.Info("Database seeder successfully")
+}
+
 func InitCommands(db *gorm.DB) {
-	cmdApp := cli.NewApp()
-	cmdApp.Commands = []*cli.Command{
-		{
-			Name: "db:migrate",
-			Action: func(ctx *cli.Context) error {
-				fmt.Println("db migrate")
-				return nil
+	app := &cli.App{
+		Commands: []*cli.Command{
+			{
+				Name:  "db:migrate",
+				Usage: "migration database",
+				Action: func(cCtx *cli.Context) error {
+					runMigrate(db)
+					return nil
+				},
+			},
+			{
+				Name:  "db:seed",
+				Usage: "seeder database",
+				Action: func(cCtx *cli.Context) error {
+					runSeeder(db)
+					return nil
+				},
 			},
 		},
 	}
+
+	if err := app.Run(os.Args); err != nil {
+		log.Fatal(err)
+	}
+
 }
