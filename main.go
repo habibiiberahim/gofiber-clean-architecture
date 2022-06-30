@@ -1,105 +1,58 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"os"
 	"os/signal"
-	"strconv"
-	"time"
+	"syscall"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/compress"
-	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/etag"
-	"github.com/gofiber/fiber/v2/middleware/favicon"
-	"github.com/gofiber/fiber/v2/middleware/limiter"
-	"github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/gofiber/fiber/v2/middleware/requestid"
-	"github.com/habibiiberahim/gofiber-clean-architecture/helpers"
+	"github.com/habibiiberahim/gofiber-clean-architecture/configs"
+	databases "github.com/habibiiberahim/gofiber-clean-architecture/databases/mysql"
+	"github.com/habibiiberahim/gofiber-clean-architecture/middlewares"
 	"github.com/habibiiberahim/gofiber-clean-architecture/pkg"
 	"github.com/habibiiberahim/gofiber-clean-architecture/routes"
-	"github.com/sirupsen/logrus"
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
 )
 
 func main() {
-	logger := logrus.New()
-	logger.Println("Starting App")
-	app := SetupRouter()
+	// Load all configs
+	configs.LoadAllConfigs(".env")
+	appCfg := configs.AppCfg()
 
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
+	pkg.SetupLogger()
+	logr := pkg.GetLogger()
+
+	// connect to DB
+	db, err := databases.GetDatabase()
+	if err != nil {
+		logr.Panicf("failed database setup. error: %v", err)
+	}
+
+	//Define Fibrt config & app
+	fiberCfg := configs.FiberConfig()
+	app := fiber.New(fiberCfg)
+
+	// Attach Middlewares.
+	middlewares.FiberMiddleware(app)
+
+	// Routes.
+	routes.InitAuthRoutes(db, app)
+	routes.NotFoundRoute(app)
+
+	// signal channel to capture system calls
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 
 	go func() {
-		_ = <-c
-		logrus.Println("Graefully shutting down")
+		<-sigCh
+		logr.Infoln("Shutting down server...")
 		_ = app.Shutdown()
 
 	}()
 
-	if err := app.Listen(":" + pkg.GodotEnv("GO_PORT")); err != nil {
-		logrus.Panic(err)
+	// start http server
+	serverAddr := fmt.Sprintf("%s:%d", appCfg.Host, appCfg.Port)
+	if err := app.Listen(serverAddr); err != nil {
+		logr.Errorf("Oops... server is not running! error: %v", err)
 	}
-
-	logrus.Println("Running cleanup task")
-}
-
-func SetupRouter() *fiber.App {
-	db, err := SetupDatabase()
-	if err != nil {
-		logrus.Println(err)
-	}
-	app := fiber.New()
-	// Use global middlewares.
-	app.Use(cors.New())
-	app.Use(compress.New())
-	app.Use(etag.New())
-	app.Use(favicon.New())
-	app.Use(limiter.New(limiter.Config{
-		Max: 100,
-		LimitReached: func(ctx *fiber.Ctx) error {
-			jsonRes := helpers.APIResponse(ctx, "You have requested too many", fiber.StatusTooManyRequests, fiber.MethodGet, "")
-			return ctx.Status(fiber.StatusAccepted).JSON(jsonRes)
-		},
-	}))
-	app.Use(logger.New())
-	app.Use(recover.New())
-	app.Use(requestid.New())
-
-	//routes init db and app
-	routes.InitAuthRoutes(db, app)
-
-	app.Use(func(ctx *fiber.Ctx) error {
-		jsonRes := helpers.APIResponse(ctx, "This endpoint not found", fiber.StatusNotFound, fiber.MethodGet, "")
-		return ctx.Status(fiber.StatusAccepted).JSON(jsonRes)
-	})
-
-	return app
-}
-
-func SetupDatabase() (*gorm.DB, error) {
-	//create connection to database
-	user := pkg.GodotEnv("DATABASE_USER")
-	pass := pkg.GodotEnv("DATABASE_PASS")
-	host := pkg.GodotEnv("DATABASE_HOST")
-	port := pkg.GodotEnv("DATABASE_PORT")
-	dbname := pkg.GodotEnv("DATABASE_NAME")
-
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", user, pass, host, port, dbname)
-	sqlDB, _ := sql.Open("mysql", dsn)
-	maxIdleConn, _ := strconv.Atoi(pkg.GodotEnv("DB_MAX_IDLE_CONNECTION"))
-	maxOpenConn, _ := strconv.Atoi(pkg.GodotEnv("DB_MAX_OPEN_CONNECTION"))
-	maxLifetimeConn, _ := strconv.Atoi(pkg.GodotEnv("DB_MAX_LIFETIME_CONNECTION"))
-
-	sqlDB.SetMaxIdleConns(maxIdleConn)
-	sqlDB.SetMaxOpenConns(maxOpenConn)
-	sqlDB.SetConnMaxLifetime(time.Duration(maxLifetimeConn) * time.Minute)
-
-	database, err := gorm.Open(mysql.New(mysql.Config{
-		Conn: sqlDB,
-	}), &gorm.Config{})
-	return database, err
 }
