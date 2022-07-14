@@ -1,17 +1,16 @@
 package helpers
 
 import (
-	"github.com/gofiber/fiber/v2"
 	"github.com/habibiiberahim/gofiber-clean-architecture/schemas"
 )
 
-func APIResponse(ctx *fiber.Ctx, Message string, StatusCode int, Method string, Data interface{}) interface{}{
+func APIResponse(Code int, Success bool, Message string, Data interface{}) interface{} {
 
 	jsonResponse := schemas.SchemaResponses{
-		StatusCode: StatusCode,
-		Method:     Method,
-		Message:    Message,
-		Data:       Data,
+		Code:    Code,
+		Success: Success,
+		Message: Message,
+		Data:    Data,
 	}
 
 	return jsonResponse

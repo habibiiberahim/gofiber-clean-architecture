@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"time"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/sirupsen/logrus"
@@ -17,60 +18,68 @@ type handlerLogin struct {
 	service services.ServiceLogin
 }
 
-func NewHandlerLogin(service services.ServiceLogin)*handlerLogin {
+func NewHandlerLogin(service services.ServiceLogin) *handlerLogin {
 	return &handlerLogin{
 		service: service,
 	}
 }
 
-func (h *handlerLogin)LoginHandler(ctx *fiber.Ctx) error {
+func (h *handlerLogin) LoginHandler(c *fiber.Ctx) error {
 	var input schemas.SchemaAuth
-	if err := ctx.BodyParser(&input); err != nil {
+	if err := c.BodyParser(&input); err != nil {
 		logrus.Debug(err.Error())
 	}
 
-	
-	e :=validation.ValidateStruct(&input,
-		validation.Field(&input.Email,validation.Required),
-		validation.Field(&input.Password,validation.Required),
+	e := validation.ValidateStruct(&input,
+		validation.Field(&input.Email, validation.Required),
+		validation.Field(&input.Password, validation.Required),
 	)
 	fmt.Println(e)
 	if e != nil {
-		jsonRes := helpers.APIResponse(ctx, "Invalid Input Data", fiber.StatusBadRequest, fiber.MethodPost, e)
-		return ctx.Status(fiber.StatusBadRequest).JSON(jsonRes)
+		jsonRes := helpers.APIResponse(fiber.StatusBadRequest, false, "Invalid Input Data", e)
+		return c.Status(fiber.StatusBadRequest).JSON(jsonRes)
 	}
 
 	res, err := h.service.LoginService(&input)
 
-	switch err.Type{
-	case "error_01" : 
-		jsonRes := helpers.APIResponse(ctx, "User account is not registered", err.Code, fiber.MethodPost, res)
-		return ctx.Status(err.Code).JSON(jsonRes)
-	case "error_02" : 
-		jsonRes := helpers.APIResponse(ctx, "User account is not active", err.Code, fiber.MethodPost, res)
-		return ctx.Status(err.Code).JSON(jsonRes)
-	case "error_03" : 
-		jsonRes := helpers.APIResponse(ctx, "Username or password is wrong", err.Code, fiber.MethodPost, res)
-		return ctx.Status(err.Code).JSON(jsonRes)
-	default : 
+	switch err.Type {
+	case "error_01":
+		webResponse := helpers.APIResponse(err.Code, false, "User account is not registered", res)
+		return c.Status(err.Code).JSON(webResponse)
+	case "error_02":
+		webResponse := helpers.APIResponse(err.Code, false, "User account is not active", res)
+		return c.Status(err.Code).JSON(webResponse)
+	case "error_03":
+		webResponse := helpers.APIResponse(err.Code, false, "Username or password is wrong", res)
+		return c.Status(err.Code).JSON(webResponse)
+	default:
 		accessTokenData := map[string]interface{}{"id": res.ID, "email": res.Email}
-		accessToken, errToken := pkg.Sign(accessTokenData, pkg.GodotEnv("JWT_SECRET"), 24*60*1)
+		accessToken, errToken := pkg.Sign(accessTokenData, pkg.GodotEnv("JWT_SECRET_KEY"), 24*60*1)
 
 		if errToken != nil {
 			defer logrus.Error(errToken.Error())
-			jsonRes := helpers.APIResponse(ctx, "Generate accessToken failed", fiber.StatusBadRequest, fiber.MethodPost, nil)
-			return ctx.Status(fiber.StatusAccepted).JSON(jsonRes)
+			webResponse := helpers.APIResponse(fiber.StatusBadRequest, true, "Generate accessToken failed", nil)
+			return c.Status(fiber.StatusAccepted).JSON(webResponse)
 		}
 
 		// _, errSendMail := pkg.SendGridMail(res.Fullname, res.Email, "Activation Account", "template_register", accessToken)
 
 		// if errSendMail != nil {
 		// 	defer logrus.Error(errSendMail.Error())
-		// 	helpers.APIResponse(ctx, "Sending email activation failed", fiber.StatusBadRequest, fiber.MethodPost, nil)
+		// 	helpers.APIResponse(c, "Sending email activation failed", fiber.StatusBadRequest, fiber.MethodPost, nil)
 		// 	return
 		// }
-		
-		jsonRes := helpers.APIResponse(ctx, "Login successfully", fiber.StatusOK, fiber.MethodPost, accessToken)
-		return ctx.Status(fiber.StatusCreated).JSON(jsonRes)
+
+		cookie := fiber.Cookie{
+			Name:     "jwt",
+			Value:    accessToken,
+			Expires:  time.Now().Add(time.Hour * 24),
+			HTTPOnly: true,
+		}
+
+		c.Cookie(&cookie)
+
+		webResponse := helpers.APIResponse(fiber.StatusOK, true, "Login successfully", accessToken)
+		return c.Status(fiber.StatusCreated).JSON(webResponse)
 	}
 }

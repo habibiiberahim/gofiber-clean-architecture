@@ -11,18 +11,18 @@ import (
 )
 
 type MetaToken struct {
-	ID        string
-	Email     string
-	ExpiredAt time.Time
+	ID            string
+	Email         string
+	ExpiredAt     time.Time
 	Authorization bool
 }
 
-type AccessToken struct{
+type AccessToken struct {
 	Claims MetaToken
 }
 
-func Sign(Data map[string]interface{}, SecretPublicKeyEnvName string, ExpiredAt time.Duration) (string , error){
-	expiredAt := time.Now().Add(time.Duration(time.Minute)*ExpiredAt).Unix()
+func Sign(Data map[string]interface{}, SecretPublicKeyEnvName string, ExpiredAt time.Duration) (string, error) {
+	expiredAt := time.Now().Add(time.Duration(time.Minute) * ExpiredAt).Unix()
 
 	jwtSecretKey := GodotEnv(SecretPublicKeyEnvName)
 
@@ -35,8 +35,8 @@ func Sign(Data map[string]interface{}, SecretPublicKeyEnvName string, ExpiredAt 
 	}
 
 	to := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	accessToken, err:= to.SignedString([]byte(jwtSecretKey))
-	
+	accessToken, err := to.SignedString([]byte(jwtSecretKey))
+
 	if err != nil {
 		logrus.Error(err.Error())
 		return accessToken, err
@@ -45,13 +45,13 @@ func Sign(Data map[string]interface{}, SecretPublicKeyEnvName string, ExpiredAt 
 	return accessToken, nil
 }
 
-func VerifyTokenHeader(ctx *fiber.Ctx, SecretPublicKeyEnvName string) (*jwt.Token, error){
+func VerifyTokenHeader(ctx *fiber.Ctx, SecretPublicKeyEnvName string) (*jwt.Token, error) {
 	tokenHeader := ctx.Get("Authorization")
-	accessToken := strings.Split(tokenHeader, "Bearer")[1] 
+	accessToken := strings.Split(tokenHeader, "Bearer")[1]
 	jwtSecretKey := GodotEnv(SecretPublicKeyEnvName)
 
-	token, err := jwt.Parse(strings.Trim(accessToken," "),func(t *jwt.Token) (interface{}, error) {
-		return []byte(jwtSecretKey),nil
+	token, err := jwt.Parse(strings.Trim(accessToken, " "), func(t *jwt.Token) (interface{}, error) {
+		return []byte(jwtSecretKey), nil
 	})
 
 	if err != nil {
@@ -60,14 +60,14 @@ func VerifyTokenHeader(ctx *fiber.Ctx, SecretPublicKeyEnvName string) (*jwt.Toke
 	}
 
 	return token, nil
-	
+
 }
 
-func VerifyToken(accessToken, SecretPublicKeyEnvName string) (*jwt.Token, error){
+func VerifyToken(accessToken, SecretPublicKeyEnvName string) (*jwt.Token, error) {
 	jwtSecretKey := GodotEnv(SecretPublicKeyEnvName)
 
 	token, err := jwt.Parse(accessToken, func(t *jwt.Token) (interface{}, error) {
-		return []byte(jwtSecretKey),nil
+		return []byte(jwtSecretKey), nil
 	})
 
 	if err != nil {
@@ -78,10 +78,10 @@ func VerifyToken(accessToken, SecretPublicKeyEnvName string) (*jwt.Token, error)
 	return token, nil
 }
 
-func DecodeToken(accessToken *jwt.Token) AccessToken{
+func DecodeToken(accessToken *jwt.Token) AccessToken {
 	var token AccessToken
 	stringify, _ := json.Marshal(&accessToken)
-	json.Unmarshal([]byte(stringify),&token)
+	json.Unmarshal([]byte(stringify), &token)
 
 	return token
 }

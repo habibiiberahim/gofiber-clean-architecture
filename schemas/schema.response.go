@@ -1,8 +1,8 @@
 package schemas
 
 type SchemaResponses struct {
-	StatusCode int         `json:"statusCode"`
-	Method     string      `json:"method"`
-	Message    string      `json:"message"`
-	Data       interface{} `json:"data"`
+	Code    int         `json:"code"`
+	Success bool        `json:"success"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data"`
 }
