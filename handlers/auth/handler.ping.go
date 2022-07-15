@@ -14,8 +14,8 @@ func NewHandlerPing(service services.ServicePing) *handlerPing {
 	return &handlerPing{service: service}
 }
 
-func (h *handlerPing) PingHandler(ctx *fiber.Ctx) error {
+func (h *handlerPing) PingHandler(c *fiber.Ctx) error {
 	res := h.service.PingService()
-	webResponse := helpers.APIResponse(fiber.StatusAccepted, true, "", res)
-	return ctx.Status(fiber.StatusAccepted).JSON(webResponse)
+	helpers.APIResponse(c, fiber.StatusAccepted, true, "", res)
+	return nil
 }

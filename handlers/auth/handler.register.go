@@ -20,10 +20,10 @@ func NewHandlerRegister(service services.ServiceRegister) *handlerRegister {
 	}
 }
 
-func (h *handlerRegister) RegisterHandler(ctx *fiber.Ctx) error {
+func (h *handlerRegister) RegisterHandler(c *fiber.Ctx) error {
 	//parsing from json to schema
 	var input schemas.SchemaAuth
-	if err := ctx.BodyParser(&input); err != nil {
+	if err := c.BodyParser(&input); err != nil {
 		logrus.Debug(err.Error())
 	}
 	//validation again
@@ -34,37 +34,34 @@ func (h *handlerRegister) RegisterHandler(ctx *fiber.Ctx) error {
 	)
 
 	if e != nil {
-		webResponse := helpers.APIResponse(fiber.StatusBadRequest, false, "Invalid Input Data", e)
-		return ctx.Status(fiber.StatusBadRequest).JSON(webResponse)
+		helpers.APIResponse(c, fiber.StatusBadRequest, false, "Invalid Input Data", e)
+
 	}
 
 	res, err := h.service.RegisterService(&input)
 	switch err.Type {
 	case "error_01":
-		webResponse := helpers.APIResponse(fiber.StatusConflict, false, "Email already exist", res)
-		return ctx.Status(fiber.StatusAccepted).JSON(webResponse)
+		helpers.APIResponse(c, fiber.StatusConflict, false, "Email already exist", res)
+		return nil
 	case "error_02":
-		webResponse := helpers.APIResponse(fiber.StatusOK, false, "Generate accessToken failed", res)
-		return ctx.Status(fiber.StatusAccepted).JSON(webResponse)
+		helpers.APIResponse(c, fiber.StatusOK, false, "Generate accessToken failed", res)
+		return nil
 	default:
 		accessTokenData := map[string]interface{}{"id": res.ID, "email": res.Email}
 		accessToken, errToken := pkg.Sign(accessTokenData, pkg.GodotEnv("JWT_SECRET_KEY"), 60)
-
 		if errToken != nil {
 			defer logrus.Error(errToken.Error())
-			webResponse := helpers.APIResponse(fiber.StatusBadRequest, false, "Generate accessToken failed", nil)
-			return ctx.Status(fiber.StatusAccepted).JSON(webResponse)
+			helpers.APIResponse(c, fiber.StatusBadRequest, false, "Generate accessToken failed", nil)
+			return nil
 		}
-
 		// _, errSendMail := pkg.SendGridMail(res.Fullname, res.Email, "Activation Account", "template_register", accessToken)
-
 		// if errSendMail != nil {
 		// 	defer logrus.Error(errSendMail.Error())
 		// 	helpers.APIResponse( "Sending email activation failed", fiber.StatusBadRequest,  nil)
 		// 	return
 		// }
 
-		webResponse := helpers.APIResponse(fiber.StatusCreated, true, "Register new account successfully", accessToken)
-		return ctx.Status(fiber.StatusCreated).JSON(webResponse)
+		helpers.APIResponse(c, fiber.StatusCreated, true, "Register new account successfully", accessToken)
+		return nil
 	}
 }

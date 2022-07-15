@@ -12,12 +12,12 @@ func JWTProtected() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		if c.Get("Authorization") == "" {
 			c.Status(fiber.StatusBadRequest)
-			return c.JSON(helpers.APIResponse(fiber.StatusBadRequest, false, "Missing or malformed JWT", ""))
+			helpers.APIResponse(c, fiber.StatusBadRequest, false, "Missing or malformed JWT", "")
 		}
 		token, err := pkg.VerifyTokenHeader(c, pkg.GodotEnv("JWT_SECRET_KEY"))
 		if err != nil {
 			c.Status(fiber.StatusUnauthorized)
-			return c.JSON(helpers.APIResponse(fiber.StatusUnauthorized, false, "Invalid or expired JWT", ""))
+			helpers.APIResponse(c, fiber.StatusUnauthorized, false, "Invalid or expired JWT", "")
 		}
 		cookie := new(fiber.Cookie)
 		cookie.Name = "Jwt"

@@ -1,9 +1,6 @@
 package handlers
 
 import (
-	"fmt"
-	"time"
-
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/sirupsen/logrus"
 
@@ -34,32 +31,32 @@ func (h *handlerLogin) LoginHandler(c *fiber.Ctx) error {
 		validation.Field(&input.Email, validation.Required),
 		validation.Field(&input.Password, validation.Required),
 	)
-	fmt.Println(e)
+
 	if e != nil {
-		jsonRes := helpers.APIResponse(fiber.StatusBadRequest, false, "Invalid Input Data", e)
-		return c.Status(fiber.StatusBadRequest).JSON(jsonRes)
+		helpers.APIResponse(c, fiber.StatusBadRequest, false, "Invalid Input Data", e)
+		return c.Status(fiber.StatusBadRequest).JSON("")
 	}
 
 	res, err := h.service.LoginService(&input)
 
 	switch err.Type {
 	case "error_01":
-		webResponse := helpers.APIResponse(err.Code, false, "User account is not registered", res)
-		return c.Status(err.Code).JSON(webResponse)
+		helpers.APIResponse(c, err.Code, false, "User account is not registered", res)
+		return c.Status(err.Code).JSON("")
 	case "error_02":
-		webResponse := helpers.APIResponse(err.Code, false, "User account is not active", res)
-		return c.Status(err.Code).JSON(webResponse)
+		helpers.APIResponse(c, err.Code, false, "User account is not active", res)
+		return c.Status(err.Code).JSON("")
 	case "error_03":
-		webResponse := helpers.APIResponse(err.Code, false, "Username or password is wrong", res)
-		return c.Status(err.Code).JSON(webResponse)
+		helpers.APIResponse(c, err.Code, false, "Username or password is wrong", res)
+		return c.Status(err.Code).JSON("")
 	default:
 		accessTokenData := map[string]interface{}{"id": res.ID, "email": res.Email}
 		accessToken, errToken := pkg.Sign(accessTokenData, pkg.GodotEnv("JWT_SECRET_KEY"), 24*60*1)
 
 		if errToken != nil {
 			defer logrus.Error(errToken.Error())
-			webResponse := helpers.APIResponse(fiber.StatusBadRequest, true, "Generate accessToken failed", nil)
-			return c.Status(fiber.StatusAccepted).JSON(webResponse)
+			helpers.APIResponse(c, fiber.StatusBadRequest, true, "Generate accessToken failed", nil)
+			return c.Status(fiber.StatusAccepted).JSON("")
 		}
 
 		// _, errSendMail := pkg.SendGridMail(res.Fullname, res.Email, "Activation Account", "template_register", accessToken)
@@ -70,16 +67,7 @@ func (h *handlerLogin) LoginHandler(c *fiber.Ctx) error {
 		// 	return
 		// }
 
-		cookie := fiber.Cookie{
-			Name:     "jwt",
-			Value:    accessToken,
-			Expires:  time.Now().Add(time.Hour * 24),
-			HTTPOnly: true,
-		}
-
-		c.Cookie(&cookie)
-
-		webResponse := helpers.APIResponse(fiber.StatusOK, true, "Login successfully", accessToken)
-		return c.Status(fiber.StatusCreated).JSON(webResponse)
+		helpers.APIResponse(c, fiber.StatusOK, true, "Login successfully", accessToken)
+		return c.Status(fiber.StatusCreated).JSON("")
 	}
 }
